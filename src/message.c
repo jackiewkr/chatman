@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 struct Message
 {
@@ -6,14 +8,14 @@ struct Message
         uint8_t size;
 };
 
-struct Message* msg_init( char* msg, uint8_t size )
+struct Message* msg_init( char* message, uint8_t size )
 {
         struct Message* msg = malloc( sizeof(struct Message) );
 
         if (msg != NULL)
         {
                 msg->msg = malloc( size );
-                memcpy( msg->msg, msg, size );
+                memcpy( msg->msg, message, size );
 
                 msg->size = size;
         }
@@ -32,7 +34,7 @@ char* msg_get( struct Message* msg )
 {
         if ( msg != NULL )
                 return msg->msg;
-        return msg;
+        return NULL;
 }
 
 uint8_t msg_getSize( struct Message* msg )

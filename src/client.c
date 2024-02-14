@@ -1,22 +1,17 @@
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include "message.h"
+#include "sockwrapper.h"
+
 
 int main( void )
 {
-        struct sockaddr_in srv_address;
-        srv_address.sin_family = AF_INET;
-        srv_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-        srv_address.sin_port = htons( 8000 );
+        struct Socket* server_sock = sockw_socket() ;
 
-        int clisock = socket( AF_INET, SOCK_STREAM, 0 );
-        if ( connect( clisock, &srv_address, sizeof(srv_address) ) == 0 )
+        if ( sockw_connect( server_sock, "127.0.0.1", 8000 ) == 0 )
         {
-                send( clisock, "Hello, World!", 13, 0 );
-
-                close( clisock );
+                struct Message* msg = msg_init( "Hello, World!", 13 );
+                sockw_write( server_sock, msg );
         }
+
+        sockw_shutdown( server_sock );
         return 0;
 }
