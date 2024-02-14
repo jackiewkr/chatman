@@ -8,7 +8,7 @@ int main( void )
 
         if ( sockw_connect( server_sock, "127.0.0.1", 8000 ) == 0 )
         {
-                struct Message* msg = msg_init( "Hello, World!", 13 );
+                struct Message* msg = msg_init( "This is a longer message!", 26 );
                 sockw_write( server_sock, msg );
         }
 
