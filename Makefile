@@ -1,9 +1,9 @@
 CC := clang
-CFLAGS := -Wall
+CFLAGS := -Wall -g -gdwarf-4
 INCLUDES := src/message.c src/sockwrapper.c
 
-server:
+srv:
 	${CC} -o server src/server.c ${CFLAGS} ${INCLUDES}
 
-client:
+cli:
 	${CC} -o client src/client.c ${CFLAGS} ${INCLUDES}

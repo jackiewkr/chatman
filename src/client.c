@@ -1,6 +1,7 @@
 #include "message.h"
 #include "sockwrapper.h"
 
+#include <unistd.h>
 
 int main( void )
 {
@@ -8,8 +9,11 @@ int main( void )
 
         if ( sockw_connect( server_sock, "127.0.0.1", 8000 ) == 0 )
         {
-                struct Message* msg = msg_init( "This is a longer message!", 26 );
-                sockw_write( server_sock, msg );
+                sockw_write( server_sock, msg_init( JOIN, "JohnDoe1", 8 ) );
+                //sleep(3);
+                sockw_write( server_sock, msg_init( WRITE, "Hello, World!", 13 ) );
+                //sleep(3);
+                sockw_write( server_sock, msg_init( LEAVE, "", 0 ) );
         }
 
         sockw_shutdown( server_sock );

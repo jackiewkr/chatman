@@ -9,7 +9,6 @@
 #include <string.h>
 #include <errno.h>
 
-#define INIT_BUF_SZ ( 4 )       //initial size of buffer when reading msg
 #define QUEUE_SIZE  ( 100 )     //size of queue when calling listen()
 
 struct Socket
@@ -24,12 +23,17 @@ struct Socket* sockw_socket( void )
 
         sockw->socknum = socket( AF_INET, SOCK_STREAM, 0 );
 
+        int active = 0;
+        setsockopt( sockw->socknum, SOL_SOCKET, SO_REUSEADDR, &active, 
+                    sizeof(active) );
+
+
         return sockw;
 }
 
 int sockw_bind( struct Socket* sockw, int port )
 {
-int active = 1;
+        int active = 0;
         setsockopt( sockw->socknum, SOL_SOCKET, SO_REUSEADDR, &active, 
                     sizeof(active) );
         
@@ -61,47 +65,37 @@ struct Socket* sockw_accept( struct Socket* sockw )
         int addr_sz;
         client_sockw->socknum = accept( sockw->socknum, &client_sockw->address, 
                                         &addr_sz );
-
+        if ( client_sockw->socknum < 0 )
+                return NULL;
         return client_sockw;
 }
 
 struct Message* sockw_read( struct Socket* sockw )
 {
-        int buf_size = INIT_BUF_SZ;
-        char* buf = malloc( buf_size );
+        char* buf = malloc( MSG_MAX_SZ );
+        unsigned int total = 0;
 
-        unsigned int complete = 0;
-        unsigned int offset = 0;
-
-        while ( !complete )
+        while ( total < MSG_MAX_SZ )
         {
-                int bytes_received = recv( sockw->socknum, buf + offset, 
-                                           buf_size - offset, 0 );
-
+                int bytes_received = recv( sockw->socknum, buf + total, 
+                                           MSG_MAX_SZ - total, 0 );
+                fprintf( stderr, "TOT: %i, %s\n", total, buf );
                 if ( bytes_received < 0 )
                 {
                         fprintf( stderr, "An Error Occurred: %s\n", 
                                  strerror( errno ) );
                         return NULL;    //error occurred
                 }
-                else if ( bytes_received == 0 )
-                        complete++;     // full message transmitted
                 else
-                {
-                        offset += bytes_received;
-
-                        //resize buf to double prev size
-                        buf_size <<= 1;
-                        buf = realloc( buf, buf_size );
-                }
+                        total += bytes_received;
         }
-
-        return msg_init( buf, strlen( buf ) ); 
+        
+        return msg_deserialize( buf ); 
 }
 
 void sockw_write( struct Socket* sockw, struct Message* msg )
 {
-        send( sockw->socknum, msg_get( msg ), msg_getSize( msg ), 0 );
+        send( sockw->socknum, msg_serialize( msg ), MSG_MAX_SZ, 0 );
 }
 
 void sockw_shutdown( struct Socket* sockw )
