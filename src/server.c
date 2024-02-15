@@ -5,8 +5,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define DEFAULT_PORT ( 8000 )
+
+struct ClientThread
+{
+        struct Server* srv;
+        struct Socket* sockw;
+};
 
 struct Server
 {
@@ -47,8 +54,9 @@ void addMessageToLog( struct Server* srv, struct Message* msg )
  * \param srv Server struct to use
  * \param client_sock Which client to handle
  */
-void thread_loop( struct Server* srv, struct Socket* client_sock )
+static void* thread_loop( void* params )
 {
+        struct ClientThread* ct = (struct ClientThread*)params;
         char* username = NULL;
         unsigned int last_log_sz = 0;
 
@@ -56,7 +64,7 @@ void thread_loop( struct Server* srv, struct Socket* client_sock )
         while ( !has_closed_conn )
         {
                 // read message
-                struct Message* req = sockw_read( client_sock );
+                struct Message* req = sockw_read( ct->sockw );
                 
                 struct Message* msg;
                 // execute message
@@ -65,31 +73,36 @@ void thread_loop( struct Server* srv, struct Socket* client_sock )
                         case JOIN:
                                 username = msg_getBody( req );
                                 msg = mangleMessage( username, "has joined." );
-                                addMessageToLog( srv, msg );
+                                addMessageToLog( ct->srv, msg );
                                 break;
                         case LEAVE:
                                 has_closed_conn++;
                                 msg = mangleMessage( username, "has left." );
-                                addMessageToLog( srv, msg );
+                                addMessageToLog( ct->srv, msg );
                                 break;
                         case WRITE:
                                 msg = mangleMessage( username, msg_getBody( req ) );
-                                addMessageToLog( srv, msg );
+                                addMessageToLog( ct->srv, msg );
                                 break;
                         default:
                                 break;
                 }
 
                 // check for new messages to send
-                while ( last_log_sz < srv->log_sz )
+                while ( last_log_sz < ct->srv->log_sz )
                 {
-                        sockw_write( client_sock, srv->log[last_log_sz] );
-                        fprintf( stderr, "%s\n", msg_getBody(srv->log[last_log_sz] ) );
+                        sockw_write( ct->sockw, ct->srv->log[last_log_sz] );
+                        fprintf( stderr, "%i: Wrote message to client at index %i\n", 
+                                 sockw_getsocknum( ct->sockw ), last_log_sz );
                         last_log_sz++;
                 }
         }
+        pthread_t tid = pthread_self();
+        sockw_shutdown( ct->sockw );
+        free( ct );
+        pthread_cancel( tid );
 
-        sockw_shutdown( client_sock );
+        return NULL;
 }
 
 int main( void )
@@ -108,12 +121,13 @@ int main( void )
                         struct Socket* client_sock = sockw_accept( srv.srv_sock );
                         if ( client_sock != NULL )
                         {
-                                pid_t p = fork();
-                                if ( p == 0 )
-                                {
-                                        thread_loop( &srv, client_sock );
-                                        kill( p, SIGINT );
-                                }
+                                //package arguments into ClientThread struct
+                                struct ClientThread* ct = malloc( sizeof(struct ClientThread) );
+                                ct->srv = &srv;
+                                ct->sockw = client_sock;
+
+                                pthread_t thread_id;
+                                pthread_create( &thread_id, NULL, &thread_loop, (void*)ct);
                         }
                 }
 

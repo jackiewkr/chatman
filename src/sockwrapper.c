@@ -2,14 +2,17 @@
 #include "message.h"
 
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #define QUEUE_SIZE  ( 100 )     //size of queue when calling listen()
+#define COUNTER_MAX ( 64 )
 
 struct Socket
 {
@@ -26,7 +29,8 @@ struct Socket* sockw_socket( void )
         int active = 0;
         setsockopt( sockw->socknum, SOL_SOCKET, SO_REUSEADDR, &active, 
                     sizeof(active) );
-
+        //set nonblocking
+        fcntl( sockw->socknum, F_SETFL, fcntl( sockw->socknum, F_GETFL ) | O_NONBLOCK );
 
         return sockw;
 }
@@ -72,25 +76,37 @@ struct Socket* sockw_accept( struct Socket* sockw )
 
 struct Message* sockw_read( struct Socket* sockw )
 {
-        char* buf = malloc( MSG_MAX_SZ );
-        unsigned int total = 0;
-
-        while ( total < MSG_MAX_SZ )
+        fd_set readfds;
+        if ( select( sockw->socknum, &readfds, NULL, NULL, NULL ) )
         {
-                int bytes_received = recv( sockw->socknum, buf + total, 
-                                           MSG_MAX_SZ - total, 0 );
-                fprintf( stderr, "TOT: %i, %s\n", total, buf );
-                if ( bytes_received < 0 )
+                char* buf = malloc( MSG_MAX_SZ );
+                unsigned int total = 0;
+                unsigned int counter = 0;
+
+                while ( total < MSG_MAX_SZ && counter < COUNTER_MAX )
                 {
-                        fprintf( stderr, "An Error Occurred: %s\n", 
-                                 strerror( errno ) );
-                        return NULL;    //error occurred
+                        int bytes_received = recv( sockw->socknum, buf + total, 
+                                           MSG_MAX_SZ - total, 0 );
+                        fprintf( stderr, "%s\n", buf );
+                        if ( bytes_received < 0 )
+                        {
+                                fprintf( stderr, "An Error Occurred: %s\n", 
+                                         strerror( errno ) );
+                                return NULL;    //error occurred
+                        }
+                        else if ( bytes_received == 0 )
+                                counter = COUNTER_MAX;
+                        else
+                                total += bytes_received;
+                        counter++;
                 }
-                else
-                        total += bytes_received;
-        }
+
+                if ( counter == COUNTER_MAX )
+                        return NULL;
         
-        return msg_deserialize( buf ); 
+                return msg_deserialize( buf );
+        }
+        return NULL;
 }
 
 void sockw_write( struct Socket* sockw, struct Message* msg )
@@ -102,4 +118,9 @@ void sockw_shutdown( struct Socket* sockw )
 {
         shutdown( sockw->socknum, SHUT_RDWR );
         free( sockw );
+}
+
+int sockw_getsocknum( struct Socket* sockw )
+{
+        return sockw->socknum;
 }
