@@ -97,5 +97,6 @@ void sockw_write( struct Socket* sockw, struct Message* msg );
  */
 void sockw_shutdown( struct Socket* sockw );
 
+int sockw_getsocknum( struct Socket* sockw );
 
 #endif
