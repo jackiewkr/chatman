@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
@@ -32,7 +33,7 @@ struct Message* mangleMessage( char* username, char* body )
         return msg_init( RECEIVE, buf, MSG_MAX_SZ );
 }
 
-void addMessageToLog( struct Server* srv, struct Message* msg )
+void addMessageToLog( struct Server* srv, struct Message** msg )
 {
         while ( srv->log_lock == 1 )
         {
@@ -41,7 +42,7 @@ void addMessageToLog( struct Server* srv, struct Message* msg )
 
         srv->log_lock = 1;
         srv->log = realloc( srv->log, ++srv->log_sz * sizeof(struct Message*) );
-        srv->log[srv->log_sz - 1] = msg;
+        srv->log[srv->log_sz - 1] = *msg;
         srv->log_lock = 0;
 }
 
@@ -73,16 +74,16 @@ static void* thread_loop( void* params )
                         case JOIN:
                                 username = msg_getBody( req );
                                 msg = mangleMessage( username, "has joined." );
-                                addMessageToLog( ct->srv, msg );
+                                addMessageToLog( ct->srv, &msg );
                                 break;
                         case LEAVE:
                                 has_closed_conn++;
                                 msg = mangleMessage( username, "has left." );
-                                addMessageToLog( ct->srv, msg );
+                                addMessageToLog( ct->srv, &msg );
                                 break;
                         case WRITE:
                                 msg = mangleMessage( username, msg_getBody( req ) );
-                                addMessageToLog( ct->srv, msg );
+                                addMessageToLog( ct->srv, &msg );
                                 break;
                         default:
                                 break;

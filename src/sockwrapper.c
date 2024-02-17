@@ -28,9 +28,7 @@ struct Socket* sockw_socket( void )
 
         int active = 0;
         setsockopt( sockw->socknum, SOL_SOCKET, SO_REUSEADDR, &active, 
-                    sizeof(active) );
-        //set nonblocking
-        fcntl( sockw->socknum, F_SETFL, fcntl( sockw->socknum, F_GETFL ) | O_NONBLOCK );
+                    sizeof(active) );    
 
         return sockw;
 }
@@ -76,9 +74,9 @@ struct Socket* sockw_accept( struct Socket* sockw )
 
 struct Message* sockw_read( struct Socket* sockw )
 {
-        fd_set readfds;
-        if ( select( sockw->socknum, &readfds, NULL, NULL, NULL ) )
-        {
+        // set O_NONBLOCK on socknum
+        fcntl( sockw->socknum, F_SETFL, 
+               fcntl( sockw->socknum, F_GETFL ) | O_NONBLOCK );
                 char* buf = malloc( MSG_MAX_SZ );
                 unsigned int total = 0;
                 unsigned int counter = 0;
@@ -87,11 +85,8 @@ struct Message* sockw_read( struct Socket* sockw )
                 {
                         int bytes_received = recv( sockw->socknum, buf + total, 
                                            MSG_MAX_SZ - total, 0 );
-                        fprintf( stderr, "%s\n", buf );
                         if ( bytes_received < 0 )
                         {
-                                fprintf( stderr, "An Error Occurred: %s\n", 
-                                         strerror( errno ) );
                                 return NULL;    //error occurred
                         }
                         else if ( bytes_received == 0 )
@@ -105,8 +100,7 @@ struct Message* sockw_read( struct Socket* sockw )
                         return NULL;
         
                 return msg_deserialize( buf );
-        }
-        return NULL;
+
 }
 
 void sockw_write( struct Socket* sockw, struct Message* msg )
