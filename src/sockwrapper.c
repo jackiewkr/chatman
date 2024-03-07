@@ -38,6 +38,13 @@ int sockw_bind( struct Socket* sockw, int port )
         int active = 0;
         setsockopt( sockw->socknum, SOL_SOCKET, SO_REUSEADDR, &active, 
                     sizeof(active) );
+
+        //set timeout for recv
+        struct timeval tv;
+        tv.tv_sec = 5;
+        tv.tv_usec = 0;
+        setsockopt( sockw->socknum, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, 
+                    sizeof(tv) );
         
         sockw->address.sin_family = AF_INET;
         sockw->address.sin_addr.s_addr = INADDR_ANY;
@@ -105,6 +112,8 @@ struct Message* sockw_read( struct Socket* sockw )
 
 void sockw_write( struct Socket* sockw, struct Message* msg )
 {
+        if ( msg == NULL )
+                return;
         send( sockw->socknum, msg_serialize( msg ), MSG_MAX_SZ, 0 );
 }
 
