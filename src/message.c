@@ -60,7 +60,6 @@ char* msg_serialize( struct Message* msg )
 {
         char* serialized = malloc( MSG_MAX_SZ );
         snprintf( serialized, MSG_MAX_SZ, "%i%s", msg->comm, msg->body );
-        fprintf( stderr, "%s\n", serialized );
         return serialized;
 }
 

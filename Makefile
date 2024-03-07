@@ -1,5 +1,5 @@
 CC := clang
-CFLAGS := -Wall -g -gdwarf-4
+CFLAGS := -Wall -g -gdwarf-4 -lncurses
 INCLUDES := src/message.c src/sockwrapper.c
 
 srv:
