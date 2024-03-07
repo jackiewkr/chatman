@@ -16,8 +16,8 @@
 
 struct Socket
 {
-        struct sockaddr_in address;      //address and port
-        int socknum;                     //socket number
+        struct sockaddr_in address;            //address and port
+        int socknum;                           //socket number
 };
 
 struct Socket* sockw_socket( void )

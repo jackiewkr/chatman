@@ -97,6 +97,12 @@ void sockw_write( struct Socket* sockw, struct Message* msg );
  */
 void sockw_shutdown( struct Socket* sockw );
 
+/**
+ * \fn sockw_getsocknum()
+ * \brief Get the number for the socket.
+ *
+ * \param sockw Socket to get the number.
+ */
 int sockw_getsocknum( struct Socket* sockw );
 
 #endif
