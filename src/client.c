@@ -147,6 +147,8 @@ int main( void )
 
                 }
                 exit_ncurses();
+                // send leave req so server doesnt fuck up majorly
+                sockw_write( server_sock, msg_init( LEAVE, "", 0 ) );
         }
         else
         {

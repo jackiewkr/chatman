@@ -22,7 +22,7 @@ struct Server
 
         struct Message** log;           //chat log
         unsigned int log_sz;
-        unsigned int log_lock;          //whether log is currently being edited
+        pthread_mutex_t log_lock;       //whether log is currently being edited
 };
 
 /* mangle message to become RECEIVE message with username */
@@ -35,15 +35,19 @@ struct Message* mangleMessage( char* username, char* body )
 
 void addMessageToLog( struct Server* srv, struct Message** msg )
 {
-        while ( srv->log_lock == 1 )
-        {
-                sleep( 1 );     
-        }
-
-        srv->log_lock = 1;
+        pthread_mutex_lock( &srv->log_lock );
         srv->log = realloc( srv->log, ++srv->log_sz * sizeof(struct Message*) );
         srv->log[srv->log_sz - 1] = *msg;
-        srv->log_lock = 0;
+        pthread_mutex_unlock( &srv->log_lock );
+}
+
+struct Message* readMessage( struct Server* srv, unsigned int index )
+{
+        pthread_mutex_lock( &srv->log_lock );
+        struct Message* msg = srv->log[index];
+        pthread_mutex_unlock( &srv->log_lock );
+
+        return msg;
 }
 
 /**
@@ -92,16 +96,17 @@ static void* thread_loop( void* params )
                 // check for new messages to send
                 while ( last_log_sz < ct->srv->log_sz )
                 {
-                        sockw_write( ct->sockw, ct->srv->log[last_log_sz] );
+                        struct Message* msg = readMessage( ct->srv, last_log_sz );
+                        fprintf( stderr, "%i: Trying '%s'...\n", sockw_getsocknum( ct->sockw ), msg_getBody( msg ) );
+                        sockw_write( ct->sockw, msg );
                         fprintf( stderr, "%i: Wrote message to client at index %i\n", 
                                  sockw_getsocknum( ct->sockw ), last_log_sz );
                         last_log_sz++;
                 }
         }
-        pthread_t tid = pthread_self();
         sockw_shutdown( ct->sockw );
         free( ct );
-        pthread_cancel( tid );
+        pthread_detach( pthread_self() );
 
         return NULL;
 }
@@ -111,6 +116,7 @@ int main( void )
         struct Server srv;
         srv.log = NULL;
         srv.log_sz = 0;
+        pthread_mutex_init( &srv.log_lock, NULL );
 
         srv.srv_sock = sockw_socket();
         if ( sockw_bind( srv.srv_sock, DEFAULT_PORT ) == 0 )
@@ -134,6 +140,7 @@ int main( void )
 
                 
         }
+        pthread_mutex_destroy( &srv.log_lock );
         sockw_shutdown( srv.srv_sock );   
 
         return 0;
